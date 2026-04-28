@@ -5,6 +5,7 @@ import { RuleGroup } from '../../rules/entities/rule-group.entities';
 import { Exclusion } from '../../rules/entities/exclusion.entities';
 import { SettingsModule } from '../../settings/settings.module';
 import { PlexApiModule } from '../plex-api/plex-api.module';
+import { EmbyAdapterService } from './emby/emby-adapter.service';
 import { MediaServerSetupGuard } from './guards/media-server-setup.guard';
 import { JellyfinAdapterService } from './jellyfin/jellyfin-adapter.service';
 import { JellyfinModule } from './jellyfin/jellyfin.module';
@@ -44,6 +45,7 @@ import { PlexAdapterService } from './plex/plex-adapter.service';
   providers: [
     PlexAdapterService,
     JellyfinAdapterService,
+    EmbyAdapterService,
     MediaServerFactory,
     MediaServerSetupGuard,
     MediaItemEnrichmentService,
@@ -57,6 +59,7 @@ import { PlexAdapterService } from './plex/plex-adapter.service';
     // Jellyfin-specific methods not on IMediaServerService (analogous to
     // PlexApiModule exporting PlexApiService for PlexGetterService).
     JellyfinAdapterService,
+    EmbyAdapterService,
     MediaServerFactory,
     MediaServerSetupGuard,
   ],

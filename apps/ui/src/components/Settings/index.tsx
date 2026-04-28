@@ -38,6 +38,10 @@ const mediaServerTabContent = (label?: string) => {
 const getMediaServerTypeFromPath = (
   pathname: string,
 ): MediaServerType | undefined => {
+  if (pathname.startsWith('/settings/emby')) {
+    return MediaServerType.EMBY
+  }
+
   if (pathname.startsWith('/settings/jellyfin')) {
     return MediaServerType.JELLYFIN
   }
@@ -56,6 +60,15 @@ const getMediaServerRoute = (
   mediaServerType: MediaServerType | null | undefined,
   isLoading: boolean,
 ): SettingsRoute | undefined => {
+  if (mediaServerType === MediaServerType.EMBY) {
+    return {
+      text: 'Emby',
+      content: mediaServerTabContent('Emby'),
+      route: '/settings/emby',
+      regex: /^\/settings\/emby$/,
+    }
+  }
+
   if (mediaServerType === MediaServerType.JELLYFIN) {
     return {
       text: 'Jellyfin',
@@ -261,8 +274,8 @@ const SettingsWrapper = () => {
                   Connect your media server to finish setup.
                 </p>
                 <p className="mt-2 leading-6 text-info-200">
-                  Choose Plex or Jellyfin, confirm the connection, and then you
-                  can continue configuring the rest of Maintainerr.
+                  Choose Plex, Jellyfin, or Emby, confirm the connection, and
+                  then you can continue configuring the rest of Maintainerr.
                 </p>
               </div>
               <p className="text-sm leading-6 text-zinc-400">

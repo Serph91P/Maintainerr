@@ -9,6 +9,7 @@ import { MaintainerrLogger } from '../../logging/logs.service';
 import { Settings } from '../../settings/entities/settings.entities';
 import { MediaServerSwitchService } from '../../settings/media-server-switch.service';
 import { SettingsService } from '../../settings/settings.service';
+import { EmbyAdapterService } from './emby/emby-adapter.service';
 import { JellyfinAdapterService } from './jellyfin/jellyfin-adapter.service';
 import { IMediaServerService } from './media-server.interface';
 import { PlexAdapterService } from './plex/plex-adapter.service';
@@ -38,6 +39,7 @@ export class MediaServerFactory {
     private readonly mediaServerSwitchService: MediaServerSwitchService,
     private readonly plexAdapter: PlexAdapterService,
     private readonly jellyfinAdapter: JellyfinAdapterService,
+    private readonly embyAdapter: EmbyAdapterService,
     private readonly logger: MaintainerrLogger,
   ) {
     this.logger.setContext(MediaServerFactory.name);
@@ -93,6 +95,9 @@ export class MediaServerFactory {
     serverType: MediaServerType,
   ): Promise<IMediaServerService> {
     switch (serverType) {
+      case MediaServerType.EMBY:
+        return await this.ensureAdapterReady(serverType, this.embyAdapter);
+
       case MediaServerType.JELLYFIN:
         return await this.ensureAdapterReady(serverType, this.jellyfinAdapter);
 
@@ -115,6 +120,7 @@ export class MediaServerFactory {
     }
 
     const configuredType = settings.media_server_type as MediaServerType | null;
+    const embyConfigured = Boolean(settings.emby_url && settings.emby_api_key);
     const jellyfinConfigured = Boolean(
       settings.jellyfin_url && settings.jellyfin_api_key,
     );
@@ -126,6 +132,7 @@ export class MediaServerFactory {
     );
     const inferredType = this.resolveServerType(
       plexConfigured,
+      embyConfigured,
       jellyfinConfigured,
     );
 
@@ -152,6 +159,9 @@ export class MediaServerFactory {
     switch (serverType) {
       case MediaServerType.PLEX:
         this.plexAdapter.uninitialize();
+        break;
+      case MediaServerType.EMBY:
+        this.embyAdapter.uninitialize();
         break;
       case MediaServerType.JELLYFIN:
         this.jellyfinAdapter.uninitialize();
@@ -180,8 +190,13 @@ export class MediaServerFactory {
 
   private resolveServerType(
     plexConfigured: boolean,
+    embyConfigured: boolean,
     jellyfinConfigured: boolean,
   ): MediaServerType | null {
+    if (embyConfigured && !plexConfigured && !jellyfinConfigured) {
+      return MediaServerType.EMBY;
+    }
+
     if (jellyfinConfigured && !plexConfigured) {
       return MediaServerType.JELLYFIN;
     }

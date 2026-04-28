@@ -9,6 +9,8 @@ type MediaServerSetupSettings =
       | 'plex_name'
       | 'plex_port'
       | 'plex_auth_token'
+      | 'emby_url'
+      | 'emby_api_key'
       | 'jellyfin_url'
       | 'jellyfin_api_key'
     >
@@ -28,6 +30,10 @@ export const hasCompletedMediaServerSetup = (
 
   if (settings.media_server_type === MediaServerType.JELLYFIN) {
     return Boolean(settings.jellyfin_url && settings.jellyfin_api_key)
+  }
+
+  if (settings.media_server_type === MediaServerType.EMBY) {
+    return Boolean(settings.emby_url && settings.emby_api_key)
   }
 
   if (settings.media_server_type === MediaServerType.PLEX) {
@@ -59,6 +65,7 @@ export function useMediaServerType() {
     mediaServerType,
     isLoading,
     isPlex: mediaServerType === MediaServerType.PLEX,
+    isEmby: mediaServerType === MediaServerType.EMBY,
     isJellyfin: mediaServerType === MediaServerType.JELLYFIN,
     isMediaServerTypeSelected: hasSelectedMediaServerType(settings),
     isSetupComplete,

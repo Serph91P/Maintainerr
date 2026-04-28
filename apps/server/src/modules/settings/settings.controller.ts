@@ -1,5 +1,7 @@
 import {
   BasicResponseDto,
+  EmbySetting,
+  embySettingSchema,
   JellyfinSetting,
   jellyfinSettingSchema,
   MediaServerSwitchPreview,
@@ -390,6 +392,42 @@ export class SettingsController {
   @Delete('/jellyfin')
   async removeJellyfinSettings(): Promise<BasicResponseDto> {
     return await this.settingsService.removeJellyfinSettings();
+  }
+
+  @Get('/emby')
+  async getEmbySetting(): Promise<EmbySetting | BasicResponseDto> {
+    const settings = await this.settingsService.getSettings();
+
+    if (!(settings instanceof Settings)) {
+      return settings;
+    }
+
+    return {
+      emby_url: settings.emby_url,
+      emby_api_key: settings.emby_api_key,
+      emby_user_id: settings.emby_user_id,
+    };
+  }
+
+  @Post('/emby/test')
+  testEmby(
+    @Body(new ZodValidationPipe(embySettingSchema))
+    payload: EmbySetting,
+  ): Promise<BasicResponseDto> {
+    return this.settingsService.testEmby(payload);
+  }
+
+  @Post('/emby')
+  async saveEmbySettings(
+    @Body(new ZodValidationPipe(embySettingSchema))
+    payload: EmbySetting,
+  ): Promise<BasicResponseDto> {
+    return await this.settingsService.saveEmbySettings(payload);
+  }
+
+  @Delete('/emby')
+  async removeEmbySettings(): Promise<BasicResponseDto> {
+    return await this.settingsService.removeEmbySettings();
   }
 
   @Delete('/sonarr/:id')

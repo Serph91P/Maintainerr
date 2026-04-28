@@ -1,5 +1,6 @@
 import {
   BasicResponseDto,
+  EmbySetting,
   JellyfinSetting,
   MaintainerrEvent,
   MediaServerType,
@@ -7,6 +8,7 @@ import {
   SeerrSetting,
   TautulliSetting,
 } from '@maintainerr/contracts';
+import axios from 'axios';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -90,6 +92,14 @@ export class SettingsService implements SettingDto {
 
   jellyfin_server_name?: string;
 
+  emby_url?: string;
+
+  emby_api_key?: string;
+
+  emby_user_id?: string;
+
+  emby_server_name?: string;
+
   // Seerr settings
   seerr_url: string;
 
@@ -157,6 +167,10 @@ export class SettingsService implements SettingDto {
       this.jellyfin_api_key = settingsDb?.jellyfin_api_key;
       this.jellyfin_user_id = settingsDb?.jellyfin_user_id;
       this.jellyfin_server_name = settingsDb?.jellyfin_server_name;
+      this.emby_url = settingsDb?.emby_url;
+      this.emby_api_key = settingsDb?.emby_api_key;
+      this.emby_user_id = settingsDb?.emby_user_id;
+      this.emby_server_name = settingsDb?.emby_server_name;
       this.seerr_url = settingsDb?.seerr_url;
       this.seerr_api_key = settingsDb?.seerr_api_key;
       this.tmdb_api_key = settingsDb?.tmdb_api_key;
@@ -174,7 +188,16 @@ export class SettingsService implements SettingDto {
       // This handles upgrades from pre-Jellyfin versions (Plex) and any future
       // scenario where media_server_type is missing but a server is configured.
       if (!this.media_server_type) {
-        if (this.jellyfin_api_key) {
+        if (this.emby_url && this.emby_api_key) {
+          this.logger.log(
+            'Detected existing Emby configuration without media_server_type set. Setting to emby.',
+          );
+          this.media_server_type = MediaServerType.EMBY;
+          await this.settingsRepo.update(
+            { id: this.id },
+            { media_server_type: MediaServerType.EMBY },
+          );
+        } else if (this.jellyfin_api_key) {
           this.logger.log(
             'Detected existing Jellyfin configuration without media_server_type set. Setting to jellyfin.',
           );
@@ -258,6 +281,7 @@ export class SettingsService implements SettingDto {
       ...settings,
       plex_auth_token: maskSecret(settings.plex_auth_token),
       jellyfin_api_key: maskSecret(settings.jellyfin_api_key),
+      emby_api_key: maskSecret(settings.emby_api_key),
       seerr_api_key: maskSecret(settings.seerr_api_key),
       tmdb_api_key: maskSecret(settings.tmdb_api_key),
       tvdb_api_key: maskSecret(settings.tvdb_api_key),
@@ -506,6 +530,60 @@ export class SettingsService implements SettingDto {
   }
 
   /**
+   * Test connection to an Emby server
+   */
+  public async testEmby(settings: EmbySetting): Promise<
+    BasicResponseDto & {
+      serverName?: string;
+      version?: string;
+      users?: Array<{ id: string; name: string }>;
+    }
+  > {
+    try {
+      const baseUrl = settings.emby_url.replace(/\/+$/, '');
+      const headers = {
+        'X-Emby-Token': settings.emby_api_key,
+        'Content-Type': 'application/json',
+      };
+
+      const [systemResponse, usersResponse] = await Promise.all([
+        axios.get(`${baseUrl}/emby/System/Info`, { headers }),
+        axios.get(`${baseUrl}/emby/Users/Query`, { headers }),
+      ]);
+
+      const systemData = systemResponse.data ?? {};
+      const rawUsers = usersResponse.data?.Items ?? usersResponse.data ?? [];
+      const users = Array.isArray(rawUsers)
+        ? rawUsers
+            .filter((user) => user?.Policy?.IsAdministrator)
+            .map((user) => ({
+              id: String(user.Id),
+              name: String(user.Name ?? user.Id),
+            }))
+        : [];
+
+      return {
+        status: 'OK',
+        code: 1,
+        message: `Connected to ${systemData.ServerName ?? 'Emby'}`,
+        serverName: systemData.ServerName,
+        version: systemData.Version,
+        users,
+      };
+    } catch (error) {
+      logConnectionTestError(this.logger, 'Emby');
+      return {
+        status: 'NOK',
+        code: 0,
+        message: formatConnectionFailureMessage(
+          error,
+          'Failed to connect to Emby. Verify URL and API key.',
+        ),
+      };
+    }
+  }
+
+  /**
    * Test connection to a Jellyfin server
    */
   public async testJellyfin(settings: JellyfinSetting): Promise<
@@ -698,6 +776,122 @@ export class SettingsService implements SettingDto {
       return { status: 'OK', code: 1, message: 'Success' };
     } catch (error) {
       this.logger.error('Error removing Jellyfin settings');
+      this.logger.debug(error);
+      return { status: 'NOK', code: 0, message: 'Failed' };
+    }
+  }
+
+  public async saveEmbySettings(
+    settings: EmbySetting,
+  ): Promise<BasicResponseDto> {
+    try {
+      const settingsDb = await this.settingsRepo.findOne({ where: {} });
+      const testResult = await this.testEmby(settings);
+
+      if (testResult.code !== 1) {
+        return {
+          status: 'NOK',
+          code: 0,
+          message: testResult.message || 'Connection test failed',
+        };
+      }
+
+      let userId = settings.emby_user_id;
+      if (!userId) {
+        userId = await this.autoDetectEmbyAdminUser(settings);
+        if (userId) {
+          this.logger.log(`Auto-detected Emby admin user ID: ${userId}`);
+        }
+      }
+
+      if (userId && testResult.users && testResult.users.length > 0) {
+        const selectedUser = testResult.users.find((user) => user.id === userId);
+        if (!selectedUser) {
+          return {
+            status: 'NOK',
+            code: 0,
+            message:
+              'Selected Emby user must be an admin. Please re-test connection and select a valid admin.',
+          };
+        }
+      }
+
+      await this.saveSettings({
+        ...settingsDb,
+        emby_url: settings.emby_url,
+        emby_api_key: settings.emby_api_key,
+        emby_user_id: userId || null,
+        emby_server_name: testResult.serverName || null,
+        media_server_type: MediaServerType.EMBY,
+      });
+
+      this.emby_url = settings.emby_url;
+      this.emby_api_key = settings.emby_api_key;
+      this.emby_user_id = userId;
+      this.emby_server_name = testResult.serverName;
+      this.media_server_type = MediaServerType.EMBY;
+
+      this.logger.log('Emby settings saved successfully');
+      return { status: 'OK', code: 1, message: 'Success' };
+    } catch (error) {
+      this.logger.error('Error while saving Emby settings');
+      this.logger.debug(error);
+      const message =
+        error instanceof Error ? error.message : 'Failed to save settings';
+      return { status: 'NOK', code: 0, message };
+    }
+  }
+
+  private async autoDetectEmbyAdminUser(
+    settings: Pick<EmbySetting, 'emby_url' | 'emby_api_key'>,
+  ): Promise<string | undefined> {
+    try {
+      const baseUrl = settings.emby_url.replace(/\/+$/, '');
+      const response = await axios.get(`${baseUrl}/emby/Users/Query`, {
+        headers: {
+          'X-Emby-Token': settings.emby_api_key,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const users = response.data?.Items ?? response.data ?? [];
+      const adminUser = Array.isArray(users)
+        ? users.find((user) => user?.Policy?.IsAdministrator)
+        : undefined;
+
+      if (adminUser?.Id) {
+        return String(adminUser.Id);
+      }
+
+      return undefined;
+    } catch (error) {
+      this.logger.error('Failed to auto-detect Emby admin user');
+      this.logger.debug(error);
+      return undefined;
+    }
+  }
+
+  public async removeEmbySettings(): Promise<BasicResponseDto> {
+    try {
+      const settingsDb = await this.settingsRepo.findOne({ where: {} });
+
+      await this.saveSettings({
+        ...settingsDb,
+        emby_url: null,
+        emby_api_key: null,
+        emby_user_id: null,
+        emby_server_name: null,
+      });
+
+      this.emby_url = undefined;
+      this.emby_api_key = undefined;
+      this.emby_user_id = undefined;
+      this.emby_server_name = undefined;
+
+      this.logger.log('Emby settings cleared');
+      return { status: 'OK', code: 1, message: 'Success' };
+    } catch (error) {
+      this.logger.error('Error removing Emby settings');
       this.logger.debug(error);
       return { status: 'NOK', code: 0, message: 'Failed' };
     }
@@ -1228,6 +1422,21 @@ export class SettingsService implements SettingDto {
     }
 
     switch (this.media_server_type) {
+      case MediaServerType.EMBY: {
+        if (!this.emby_url || !this.emby_api_key) {
+          return false;
+        }
+
+        return (
+          (
+            await this.testEmby({
+              emby_url: this.emby_url,
+              emby_api_key: this.emby_api_key,
+              emby_user_id: this.emby_user_id,
+            })
+          ).status === 'OK'
+        );
+      }
       case MediaServerType.JELLYFIN: {
         if (!this.jellyfin_url || !this.jellyfin_api_key) {
           return false;
@@ -1346,6 +1555,10 @@ export class SettingsService implements SettingDto {
       if (this.media_server_type === MediaServerType.JELLYFIN) {
         // Jellyfin requires URL and API key (user ID is optional, can be auto-detected later)
         if (this.jellyfin_url && this.jellyfin_api_key) {
+          return true;
+        }
+      } else if (this.media_server_type === MediaServerType.EMBY) {
+        if (this.emby_url && this.emby_api_key) {
           return true;
         }
       } else if (this.media_server_type === MediaServerType.PLEX) {

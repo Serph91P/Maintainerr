@@ -22,6 +22,13 @@ export const MEDIA_SERVER_FEATURES: Record<
     // Note: WATCHLIST not supported (no API)
     // Note: CENTRAL_WATCH_HISTORY not supported (requires user iteration)
   ]),
+  [MediaServerType.EMBY]: new Set([
+    MediaServerFeature.LABELS,
+    MediaServerFeature.PLAYLISTS,
+    // Note: COLLECTION_VISIBILITY not supported in v1
+    // Note: WATCHLIST not supported in v1
+    // Note: CENTRAL_WATCH_HISTORY not supported in v1
+  ]),
 };
 
 export const MEDIA_SERVER_BATCH_SIZE = {

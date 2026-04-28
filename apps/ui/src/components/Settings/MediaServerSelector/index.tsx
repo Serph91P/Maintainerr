@@ -46,7 +46,25 @@ const serverOptions: {
     description: 'Jellyfin Media Server',
     icon: `${basePath}/icons_logos/jellyfin.svg`,
   },
+  {
+    value: MediaServerType.EMBY,
+    name: 'Emby',
+    description: 'Emby Media Server',
+    icon: `${basePath}/icons_logos/emby.svg`,
+  },
 ]
+
+const getMediaServerLabel = (type: MediaServerType | null) => {
+  if (type === MediaServerType.PLEX) {
+    return 'Plex'
+  }
+
+  if (type === MediaServerType.EMBY) {
+    return 'Emby'
+  }
+
+  return 'Jellyfin'
+}
 
 const MediaServerSelector = ({
   currentType,
@@ -84,7 +102,7 @@ const MediaServerSelector = ({
           targetServerType: type,
         })
         onInfo?.(
-          `Selected ${type === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'} as your media server`,
+          `Selected ${getMediaServerLabel(type)} as your media server`,
         )
 
         // Wait for settings to refetch before navigating
@@ -276,17 +294,13 @@ const MediaServerSelector = ({
                             ?.icon
                         }
                         alt={
-                          currentType === MediaServerType.PLEX
-                            ? 'Plex'
-                            : 'Jellyfin'
+                          getMediaServerLabel(currentType)
                         }
                         className="h-16 w-auto object-contain"
                       />
                     </div>
                     <span className="mt-2 text-sm font-medium text-zinc-400">
-                      {currentType === MediaServerType.PLEX
-                        ? 'Plex'
-                        : 'Jellyfin'}
+                      {getMediaServerLabel(currentType)}
                     </span>
                   </div>
 
@@ -303,13 +317,13 @@ const MediaServerSelector = ({
                       serverOptions.find((o) => o.value === pendingType)?.icon
                     }
                     alt={
-                      pendingType === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'
+                      getMediaServerLabel(pendingType)
                     }
                     className="h-16 w-auto object-contain"
                   />
                 </div>
                 <span className="mt-2 text-sm font-medium text-zinc-400">
-                  {pendingType === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'}
+                  {getMediaServerLabel(pendingType)}
                 </span>
               </div>
             </div>
@@ -319,7 +333,7 @@ const MediaServerSelector = ({
                 <>
                   Successfully switched to{' '}
                   <strong className="text-zinc-100">
-                    {pendingType === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'}
+                    {getMediaServerLabel(pendingType)}
                   </strong>
                   !
                 </>
@@ -327,11 +341,11 @@ const MediaServerSelector = ({
                 <>
                   We will now switch from{' '}
                   <strong className="text-zinc-100">
-                    {currentType === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'}
+                    {getMediaServerLabel(currentType)}
                   </strong>{' '}
                   to{' '}
                   <strong className="text-zinc-100">
-                    {pendingType === MediaServerType.PLEX ? 'Plex' : 'Jellyfin'}
+                    {getMediaServerLabel(pendingType)}
                   </strong>
                   .
                 </>
@@ -421,9 +435,7 @@ const MediaServerSelector = ({
                   <label htmlFor="migrateRules" className="ml-3 cursor-pointer">
                     <span className="block font-medium text-zinc-100">
                       Migrate rules to{' '}
-                      {pendingType === MediaServerType.PLEX
-                        ? 'Plex'
-                        : 'Jellyfin'}
+                      {getMediaServerLabel(pendingType)}
                     </span>
                     <span className="block text-sm text-zinc-400">
                       {previewData!.ruleMigration!.migratableRules} of{' '}
@@ -434,9 +446,7 @@ const MediaServerSelector = ({
                           {' '}
                           {previewData!.ruleMigration!.skippedRules} rule(s) use
                           properties not available in{' '}
-                          {pendingType === MediaServerType.PLEX
-                            ? 'Plex'
-                            : 'Jellyfin'}
+                          {getMediaServerLabel(pendingType)}
                           .
                         </span>
                       )}

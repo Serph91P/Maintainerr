@@ -95,6 +95,9 @@ describe('MediaServerSetupGuard', () => {
       isAllowedDuringMediaServerSetup('/settings/jellyfin', 'jellyfin' as any),
     ).toBe(true)
     expect(
+      isAllowedDuringMediaServerSetup('/settings/emby', 'emby' as any),
+    ).toBe(true)
+    expect(
       isAllowedDuringMediaServerSetup('/settings/plex', 'plex' as any),
     ).toBe(true)
   })

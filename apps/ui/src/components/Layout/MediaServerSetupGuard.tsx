@@ -17,6 +17,10 @@ export const mediaServerSetupRequiredMessage =
 export const getMediaServerSetupRoute = (
   mediaServerType?: MediaServerType | null,
 ) => {
+  if (mediaServerType === MediaServerType.EMBY) {
+    return '/settings/emby'
+  }
+
   if (mediaServerType === MediaServerType.JELLYFIN) {
     return '/settings/jellyfin'
   }

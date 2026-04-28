@@ -1,5 +1,6 @@
 import {
   BasicResponseDto,
+  EmbySetting,
   JellyfinSetting,
   MediaServerSwitchPreview,
   MediaServerType,
@@ -48,6 +49,11 @@ export interface ISettings {
   jellyfin_api_key?: string
   jellyfin_user_id?: string
   jellyfin_server_name?: string
+  // Emby settings
+  emby_url?: string
+  emby_api_key?: string
+  emby_user_id?: string
+  emby_server_name?: string
   // Seerr integration
   seerr_api_key: string
   tautulli_url: string
@@ -59,6 +65,18 @@ export interface ISettings {
 
 // Jellyfin test result (not in contracts as it's UI-specific)
 export interface JellyfinTestResult {
+  status: string
+  code: number
+  message: string
+  serverName?: string
+  version?: string
+  users?: Array<{
+    id: string
+    name: string
+  }>
+}
+
+export interface EmbyTestResult {
   status: string
   code: number
   message: string
@@ -160,6 +178,7 @@ export const useDeletePlexAuth = (options?: UseDeletePlexAuthOptions) => {
 export type UseDeletePlexAuthResult = ReturnType<typeof useDeletePlexAuth>
 
 type UseJellyfinSettingsQueryKey = ['settings', 'jellyfin']
+type UseEmbySettingsQueryKey = ['settings', 'emby']
 
 type UseJellyfinSettingsOptions = Omit<
   UseQueryOptions<
@@ -188,6 +207,24 @@ export const useJellyfinSettings = (options?: UseJellyfinSettingsOptions) => {
 }
 
 export type UseJellyfinSettingsResult = ReturnType<typeof useJellyfinSettings>
+
+type UseEmbySettingsOptions = Omit<
+  UseQueryOptions<EmbySetting, Error, EmbySetting, UseEmbySettingsQueryKey>,
+  'queryKey' | 'queryFn'
+>
+
+export const useEmbySettings = (options?: UseEmbySettingsOptions) => {
+  return useQuery<EmbySetting, Error, EmbySetting, UseEmbySettingsQueryKey>({
+    queryKey: ['settings', 'emby'],
+    queryFn: async () => {
+      return await GetApiHandler<EmbySetting>('/settings/emby')
+    },
+    staleTime: 0,
+    ...options,
+  })
+}
+
+export type UseEmbySettingsResult = ReturnType<typeof useEmbySettings>
 
 type UseUpdatePlexAuthOptions = Omit<
   UseMutationOptions<BasicResponseDto, Error, string>,
@@ -421,6 +458,75 @@ export type UseDeleteJellyfinSettingsResult = ReturnType<
   typeof useDeleteJellyfinSettings
 >
 
+type UseTestEmbyOptions = Omit<
+  UseMutationOptions<EmbyTestResult, Error, EmbySetting>,
+  'mutationFn' | 'mutationKey'
+>
+
+export const useTestEmby = (options?: UseTestEmbyOptions) => {
+  return useMutation<EmbyTestResult, Error, EmbySetting>({
+    mutationKey: ['settings', 'testEmby'],
+    mutationFn: async (payload: EmbySetting) => {
+      return await PostApiHandler<EmbyTestResult>('/settings/emby/test', payload)
+    },
+    ...options,
+  })
+}
+
+export type UseTestEmbyResult = ReturnType<typeof useTestEmby>
+
+type UseSaveEmbySettingsOptions = Omit<
+  UseMutationOptions<BasicResponseDto, Error, EmbySetting>,
+  'mutationFn' | 'mutationKey' | 'onSuccess'
+>
+
+export const useSaveEmbySettings = (options?: UseSaveEmbySettingsOptions) => {
+  const queryClient = useQueryClient()
+
+  return useMutation<BasicResponseDto, Error, EmbySetting>({
+    mutationKey: ['settings', 'saveEmby'],
+    mutationFn: async (payload: EmbySetting) => {
+      return await PostApiHandler<BasicResponseDto>('/settings/emby', payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['settings'] satisfies UseSettingsQueryKey,
+      })
+    },
+    ...options,
+  })
+}
+
+export type UseSaveEmbySettingsResult = ReturnType<typeof useSaveEmbySettings>
+
+type UseDeleteEmbySettingsOptions = Omit<
+  UseMutationOptions<BasicResponseDto, Error, void>,
+  'mutationFn' | 'mutationKey' | 'onSuccess'
+>
+
+export const useDeleteEmbySettings = (
+  options?: UseDeleteEmbySettingsOptions,
+) => {
+  const queryClient = useQueryClient()
+
+  return useMutation<BasicResponseDto, Error, void>({
+    mutationKey: ['settings', 'deleteEmby'],
+    mutationFn: async () => {
+      return await DeleteApiHandler<BasicResponseDto>('/settings/emby')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['settings'] satisfies UseSettingsQueryKey,
+      })
+    },
+    ...options,
+  })
+}
+
+export type UseDeleteEmbySettingsResult = ReturnType<
+  typeof useDeleteEmbySettings
+>
+
 type UsePreviewMediaServerSwitchOptions = Omit<
   UseMutationOptions<MediaServerSwitchPreview, Error, MediaServerType>,
   'mutationFn' | 'mutationKey'
@@ -431,7 +537,7 @@ export const usePreviewMediaServerSwitch = (
 ) => {
   return useMutation<MediaServerSwitchPreview, Error, MediaServerType>({
     mutationKey: ['settings', 'previewMediaServerSwitch'],
-    mutationFn: async (targetServerType) => {
+    mutationFn: async (targetServerType: MediaServerType) => {
       return await GetApiHandler<MediaServerSwitchPreview>(
         `/settings/media-server/switch/preview/${targetServerType}`,
       )
@@ -460,7 +566,7 @@ export const useSwitchMediaServer = (options?: UseSwitchMediaServerOptions) => {
     SwitchMediaServerRequest
   >({
     mutationKey: ['settings', 'switchMediaServer'],
-    mutationFn: async (payload) => {
+    mutationFn: async (payload: SwitchMediaServerRequest) => {
       return await PostApiHandler<SwitchMediaServerResponse>(
         '/settings/media-server/switch',
         payload,

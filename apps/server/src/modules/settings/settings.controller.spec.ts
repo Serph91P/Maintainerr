@@ -19,10 +19,13 @@ describe('SettingsController', () => {
     cronIsValid: jest.fn(),
     updateRadarrSetting: jest.fn(),
     updateSonarrSetting: jest.fn(),
+    saveEmbySettings: jest.fn(),
+    testEmby: jest.fn(),
     saveJellyfinSettings: jest.fn(),
     testJellyfin: jest.fn(),
     testPlex: jest.fn(),
     testPlexAuthToken: jest.fn(),
+    removeEmbySettings: jest.fn(),
     removeJellyfinSettings: jest.fn(),
   } as unknown as jest.Mocked<SettingsService>;
 
@@ -54,6 +57,9 @@ describe('SettingsController', () => {
       jellyfin_url: null,
       jellyfin_api_key: null,
       jellyfin_user_id: null,
+      emby_url: null,
+      emby_api_key: null,
+      emby_user_id: null,
       ...overrides,
     });
 
@@ -107,6 +113,20 @@ describe('SettingsController', () => {
           jellyfin_user_id: 'u-1',
         },
       },
+      {
+        name: 'Emby',
+        method: 'getEmbySetting' as const,
+        entityOverrides: {
+          emby_url: 'http://emby.local:8096',
+          emby_api_key: 'emby-key',
+          emby_user_id: 'emby-user',
+        },
+        expected: {
+          emby_url: 'http://emby.local:8096',
+          emby_api_key: 'emby-key',
+          emby_user_id: 'emby-user',
+        },
+      },
     ])(
       'maps $name settings from entity values',
       async ({ method, entityOverrides, expected }) => {
@@ -121,6 +141,7 @@ describe('SettingsController', () => {
     it.each([
       { name: 'Tautulli', method: 'getTautulliSetting' as const },
       { name: 'Seerr', method: 'getSeerrSetting' as const },
+      { name: 'Emby', method: 'getEmbySetting' as const },
       { name: 'Jellyfin', method: 'getJellyfinSetting' as const },
     ])(
       'passes through non-entity response for $name settings',

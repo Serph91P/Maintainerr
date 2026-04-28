@@ -1,4 +1,5 @@
 export * from './enums'
+export * from './emby'
 export * from './jellyfin'
 export * from './plex'
 export * from './sort-utils'

@@ -43,6 +43,15 @@ export class SettingDto {
 
   jellyfin_server_name?: string;
 
+  // Emby settings
+  emby_url?: string;
+
+  emby_api_key?: string;
+
+  emby_user_id?: string;
+
+  emby_server_name?: string;
+
   // Seerr integration
   seerr_url: string;
 

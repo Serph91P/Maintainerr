@@ -8,9 +8,15 @@ const navigate = vi.fn()
 const toastError = vi.fn()
 
 const getMediaServerSettingsPath = (mediaServerType: MediaServerType) => {
-  return mediaServerType === MediaServerType.PLEX
-    ? '/settings/plex'
-    : '/settings/jellyfin'
+  if (mediaServerType === MediaServerType.PLEX) {
+    return '/settings/plex'
+  }
+
+  if (mediaServerType === MediaServerType.EMBY) {
+    return '/settings/emby'
+  }
+
+  return '/settings/jellyfin'
 }
 
 let currentPath = getMediaServerSettingsPath(MediaServerType.JELLYFIN)
